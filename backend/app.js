@@ -50,7 +50,7 @@ app.post("/api/register", async (req, res) => {
 app.post(
   "/api/login",
   passport.authenticate("local", { failureRedirect: "/login" }),
-  (res) => {
+  (req,res) => {
     res.status(200).json({ message: "Login successful!" });
   }
 );
