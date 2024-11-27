@@ -12,12 +12,18 @@ const app = express();
 const PORT = process.env.PORT;
 
 // Middleware
+const isProduction = process.env.NODE_ENV === "production";
 app.use(express.json());
 app.use(
   session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
+    cookie: {
+      secure: isProduction, // Ensures cookies are sent only over HTTPS in production
+      httpOnly: true, // Prevent client-side JavaScript from accessing cookies
+      sameSite: isProduction ? "None" : "Strict", // Required for cross-domain cookies
+    },
   })
 );
 
@@ -50,7 +56,7 @@ app.post("/api/register", async (req, res) => {
 app.post(
   "/api/login",
   passport.authenticate("local", { failureRedirect: "/login" }),
-  (req,res) => {
+  (req, res) => {
     res.status(200).json({ message: "Login successful!" });
   }
 );
