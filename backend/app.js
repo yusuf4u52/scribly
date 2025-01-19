@@ -23,7 +23,7 @@ app.use(
       httpOnly: true, // Prevents client-side JavaScript from accessing cookies
       secure: process.env.NODE_ENV === "production", // Use HTTPS in production
       maxAge: 1000 * 60 * 60, // 1 hour (set based on your needs)
-      sameSite: "none", // Required for cross-origin requests
+      sameSite: "lax", // Required for cross-origin requests
     },
   })
 );
