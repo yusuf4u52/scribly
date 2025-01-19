@@ -16,13 +16,14 @@ const isProduction = process.env.NODE_ENV === "production";
 app.use(express.json());
 app.use(
   session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: true,
+    secret: process.env.SESSION_SECRET, // Replace with a strong secret
+    resave: false, // Prevents session from being saved back to the session store if it hasn't been modified
+    saveUninitialized: false, // Prevents uninitialized sessions from being saved
     cookie: {
-      secure: isProduction, // Ensures cookies are sent only over HTTPS in production
-      httpOnly: true, // Prevent client-side JavaScript from accessing cookies
-      sameSite: isProduction ? "None" : "Strict", // Required for cross-domain cookies
+      httpOnly: true, // Prevents client-side JavaScript from accessing cookies
+      secure: process.env.NODE_ENV === "production", // Use HTTPS in production
+      maxAge: 1000 * 60 * 60, // 1 hour (set based on your needs)
+      sameSite: "none", // Required for cross-origin requests
     },
   })
 );
@@ -53,13 +54,9 @@ app.post("/api/register", async (req, res) => {
 });
 
 // Login endpoint
-app.post(
-  "/api/login",
-  passport.authenticate("local"),
-  (req, res) => {
-    res.status(200).json({ message: "Login successful!" });
-  }
-);
+app.post("/api/login", passport.authenticate("local"), (req, res) => {
+  res.status(200).json({ message: "Login successful!" });
+});
 
 // Protected route (user info)
 app.get("/api/user", (req, res) => {
