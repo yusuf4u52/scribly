@@ -1,10 +1,8 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
-const passport = require("passport");
-const session = require("express-session");
+const jwt = require("jsonwebtoken");
 const User = require("./models/User");
 const sequelize = require("./models/index");
-require("./passportConfig");
 const cors = require("cors");
 require("dotenv").config();
 
@@ -12,31 +10,16 @@ const app = express();
 const PORT = process.env.PORT;
 
 // Middleware
-const isProduction = process.env.NODE_ENV === "production";
 app.use(express.json());
 app.use(
-  session({
-    secret: process.env.SESSION_SECRET, // Replace with a strong secret
-    resave: false, // Prevents session from being saved back to the session store if it hasn't been modified
-    saveUninitialized: false, // Prevents uninitialized sessions from being saved
-    cookie: {
-      httpOnly: true, // Prevents client-side JavaScript from accessing cookies
-      secure: process.env.NODE_ENV === "production", // Use HTTPS in production
-      maxAge: 1000 * 60 * 60, // 1 hour (set based on your needs)
-      sameSite: "lax", // Required for cross-origin requests
-    },
-  })
-);
-
-// Initialize Passport.js
-app.use(passport.initialize());
-app.use(passport.session());
-app.use(
   cors({
-    origin: process.env.ALLOWED_ORIGIN,
+    origin: process.env.ALLOWED_ORIGIN, // Your frontend's URL
     credentials: true,
   })
 );
+
+const JWT_SECRET = process.env.SESSION_SECRET;
+const TOKEN_EXPIRATION = "1h"; // Adjust token validity as needed
 
 // Register endpoint
 app.post("/api/register", async (req, res) => {
@@ -54,24 +37,81 @@ app.post("/api/register", async (req, res) => {
 });
 
 // Login endpoint
-app.post("/api/login", passport.authenticate("local"), (req, res) => {
-  res.status(200).json({ message: "Login successful!" });
-});
+app.post("/api/login", async (req, res) => {
+  const { username, password } = req.body;
 
-// Protected route (user info)
-app.get("/api/user", (req, res) => {
-  if (req.isAuthenticated()) {
-    res.status(200).json({ user: req.user });
-  } else {
-    res.status(401).json({ message: "Unauthorized" });
+  try {
+    // Find the user in the database
+    const user = await User.findOne({ where: { username } });
+    if (!user) {
+      return res.status(401).json({ message: "Invalid username or password." });
+    }
+
+    // Compare passwords
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid username or password." });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      JWT_SECRET,
+      {
+        expiresIn: TOKEN_EXPIRATION,
+      }
+    );
+
+    res.status(200).json({ message: "Login successful!", token });
+  } catch (error) {
+    res.status(500).json({ error: "An error occurred during login." });
   }
 });
 
-// Logout endpoint
+// Middleware to verify JWT
+const authenticateJWT = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (authHeader) {
+    const token = authHeader.split(" ")[1]; // Extract the token
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+      if (err) {
+        return res.status(403).json({ message: "Invalid or expired token." });
+      }
+      req.user = user; // Attach user information to the request object
+      next();
+    });
+  } else {
+    res.status(401).json({ message: "Authorization token is required." });
+  }
+};
+
+// Protected route (user info)
+app.get("/api/user", authenticateJWT, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ["id", "username"], // Avoid returning sensitive information
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    res.status(200).json({ user });
+  } catch (error) {
+    res
+      .status(500)
+      .json({ error: "An error occurred while fetching user data." });
+  }
+});
+
+// Logout (Token-based systems don't have server-side logout)
 app.post("/api/logout", (req, res) => {
-  req.logout((err) => {
-    if (err) return next(err);
-    res.status(200).json({ message: "Logged out successfully!" });
+  // Inform the client to remove the token
+  res.status(200).json({
+    message:
+      "Logged out successfully! Please clear your token on the client side.",
   });
 });
 
