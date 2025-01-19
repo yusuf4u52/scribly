@@ -1,20 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import './App.css'; // Import CSS file for styling
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+import "./App.css"; // Import CSS file for styling
 
 const API_URL = process.env.REACT_APP_API_URL;
 
 function App() {
   const [user, setUser] = useState(null);
-  const [form, setForm] = useState({ username: '', password: '' });
-  const [message, setMessage] = useState('');
+  const [form, setForm] = useState({ username: "", password: "" });
+  const [message, setMessage] = useState("");
 
+  // Fetch user data from protected route
   const fetchUser = async () => {
     try {
-      const { data } = await axios.get(`${API_URL}/user`, { withCredentials: true });
+      const token = localStorage.getItem("authToken");
+      const { data } = await axios.get(`${API_URL}/user`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       setUser(data.user);
-      setMessage('');
-    } catch {
+      setMessage("");
+    } catch (error) {
       setUser(null);
     }
   };
@@ -31,35 +37,39 @@ function App() {
   const register = async () => {
     try {
       await axios.post(`${API_URL}/register`, form);
-      setMessage('Registered successfully! Please log in.');
-    } catch {
-      setMessage('Registration failed.');
+      setMessage("Registered successfully! Please log in.");
+    } catch (error) {
+      setMessage("Registration failed.");
     }
   };
 
   const login = async () => {
     try {
-      await axios.post(`${API_URL}/login`, form, { withCredentials: true });
+      const { data } = await axios.post(`${API_URL}/login`, form);
+      // Store the JWT token in localStorage
+      localStorage.setItem("authToken", data.token);
       fetchUser();
-    } catch {
-      setMessage('Login failed. Check your credentials.');
+    } catch (error) {
+      setMessage("Login failed. Check your credentials.");
     }
   };
 
   const logout = async () => {
     try {
-      await axios.post(`${API_URL}/logout`, {}, { withCredentials: true });
+      localStorage.removeItem("authToken");
       setUser(null);
-      setMessage('Logged out successfully.');
-    } catch {
-      setMessage('Logout failed.');
+      setMessage("Logged out successfully.");
+    } catch (error) {
+      setMessage("Logout failed.");
     }
   };
 
   return (
     <div className="app">
       <div className="container">
-        <h1 className="title">{user ? `Welcome, ${user.username}` : 'Authentication'}</h1>
+        <h1 className="title">
+          {user ? `Welcome, ${user.username}` : "Authentication"}
+        </h1>
 
         {message && <p className="message">{message}</p>}
 
@@ -82,14 +92,22 @@ function App() {
               className="input"
             />
             <div className="buttons">
-              <button onClick={register} className="button">Sign Up</button>
-              <button onClick={login} className="button">Login</button>
+              <button onClick={register} className="button">
+                Sign Up
+              </button>
+              <button onClick={login} className="button">
+                Login
+              </button>
             </div>
           </div>
         ) : (
           <div>
-            <p className="welcome">You are logged in as <strong>{user.username}</strong>.</p>
-            <button onClick={logout} className="button logout">Logout</button>
+            <p className="welcome">
+              You are logged in as <strong>{user.username}</strong>.
+            </p>
+            <button onClick={logout} className="button logout">
+              Logout
+            </button>
           </div>
         )}
       </div>
