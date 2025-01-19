@@ -55,7 +55,7 @@ app.post("/api/register", async (req, res) => {
 // Login endpoint
 app.post(
   "/api/login",
-  passport.authenticate("local", { failureRedirect: "/login" }),
+  passport.authenticate("local"),
   (req, res) => {
     res.status(200).json({ message: "Login successful!" });
   }
